@@ -33,6 +33,11 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarqube.hashedin.com
+        with:
+          args: >
+            -Dsonar.projectKey=hu-devops-25-draghav-java-security
+            -Dsonar.projectName=DevSecOps-Java-App
+            -Dsonar.sources=.
 
   dependency-check:
     runs-on: ubuntu-latest
@@ -49,7 +54,7 @@ jobs:
           ./dependency-check/bin/dependency-check.sh --project "DevSecOps App" --scan . --format "ALL" --out scan-reports/
 
       - name: Upload Dependency Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-check-report
           path: scan-reports/
@@ -72,7 +77,7 @@ jobs:
           output: 'scan-reports/trivy-report.txt'
 
       - name: Upload Trivy Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trivy-report
           path: scan-reports/
