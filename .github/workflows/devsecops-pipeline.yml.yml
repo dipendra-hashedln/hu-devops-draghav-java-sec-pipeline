@@ -1,0 +1,95 @@
+name: DevSecOps Security Pipeline
+
+on:
+  push:
+    branches:
+      - feature-1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build
+        run: mvn clean install
+
+  sonar:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarqube.hashedin.com
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Download and Run OWASP Dependency Check
+        run: |
+          mkdir -p scan-reports
+          curl -L -o dc.zip https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.6/dependency-check-9.0.6-release.zip
+          unzip dc.zip
+          ./dependency-check/bin/dependency-check.sh --project "DevSecOps App" --scan . --format "ALL" --out scan-reports/
+
+      - name: Upload Dependency Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-check-report
+          path: scan-reports/
+
+  trivy-scan:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build Docker Image
+        run: docker build -t devsecops-app .
+
+      - name: Scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: devsecops-app
+          format: 'table'
+          output: 'scan-reports/trivy-report.txt'
+
+      - name: Upload Trivy Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-report
+          path: scan-reports/
+
+  upload-s3:
+    runs-on: ubuntu-latest
+    needs: [dependency-check, trivy-scan]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Upload Reports to S3
+        run: aws s3 cp scan-reports/ s3://hu-devops-25-draghav-scan-reports/ --recursive

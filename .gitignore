@@ -1,0 +1,8 @@
+*.class
+*.jar
+*.log
+target/
+.idea/
+*.iml
+.env
+scan-reports/
