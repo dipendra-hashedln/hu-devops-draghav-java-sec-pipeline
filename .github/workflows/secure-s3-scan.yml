@@ -1,0 +1,55 @@
+name: Deploy Secure S3 & Run Scans
+
+on:
+  push:
+    branches:
+      - feature-2
+
+jobs:
+  deploy-and-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform/s3_secure
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: terraform/s3_secure
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Run Checkov
+        run: |
+          checkov -d terraform/s3_secure -o json > checkov-report.json
+
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+      - name: Run TFLint
+        run: |
+          tflint --init
+          tflint --format json terraform/s3_secure > tflint-report.json
+
+      - name: Upload reports to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1
+        run: |
+          aws s3 cp checkov-report.json s3://hu-devops-25-draghav-secure-bucket/
+          aws s3 cp tflint-report.json s3://hu-devops-25-draghav-secure-bucket/
