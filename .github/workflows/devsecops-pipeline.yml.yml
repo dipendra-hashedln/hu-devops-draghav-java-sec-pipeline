@@ -51,7 +51,7 @@ jobs:
           mkdir -p scan-reports
           curl -L -o dc.zip https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.6/dependency-check-9.0.6-release.zip
           unzip dc.zip
-          ./dependency-check/bin/dependency-check.sh --project "java-app" --scan ./app --format "HTML" --out scan-reports --nvdApiKey ${{ secrets.NVD_API_KEY }}
+          ./dependency-check/bin/dependency-check.sh --project "java-app" --scan ./src/main/java --format "HTML" --out scan-reports --nvdApiKey ${{ secrets.NVD_API_KEY }}
 
       - name: Upload Dependency Report
         uses: actions/upload-artifact@v4
